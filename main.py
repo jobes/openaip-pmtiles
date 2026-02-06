@@ -3,6 +3,7 @@ import pathlib
 import shlex
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -28,7 +29,6 @@ TIPPECANOE_ARGS = [
     "--drop-rate=0",
     "--base-zoom=0",
     "--preserve-point-density-threshold=0",
-    "--progress-interval=1",
     "--coalesce-smallest-as-needed",
 ]
 TILE_JOIN_EXECUTABLE = "tile-join"
@@ -126,7 +126,7 @@ def process_country(country_group_name: str) -> None:
     cmd = [TIPPECANOE_EXECUTABLE, "-o", str(output_file), *TIPPECANOE_ARGS, *existing_files]
 
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"tippecanoe failed for {country_group_name}") from exc
 
@@ -182,6 +182,7 @@ def join_country_pmtiles() -> None:
 def main() -> None:
     ensure_download_dir()
     for group in country_groups:
+        group_start_time = time.time()
         group_index = list(country_groups).index(group) + 1
         reset_first_flags()
         for dataset in OPEN_AIP_DATASETS:
@@ -200,9 +201,13 @@ def main() -> None:
                 f.write("]}")
 
         process_country(group)
-        print(f"Finished processing {group} ({group_index}/{len(country_groups)})")
+        group_elapsed_time = time.time() - group_start_time
+        print(f"Finished processing {group} ({group_index}/{len(country_groups)}) in {group_elapsed_time:.2f}s")
     
+    join_start_time = time.time()
     join_country_pmtiles()
+    join_elapsed_time = time.time() - join_start_time
+    print(f"Finished joining pmtiles in {join_elapsed_time:.2f}s")
     print("All pmtiles stored in output_tiles/.")
 
 if __name__ == "__main__":

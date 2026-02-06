@@ -18,4 +18,4 @@ big_countries = ['gr','mn','in','sa','ro','kz','nz','gl','tr','ir','za','jp','se
                 'fi','de','it','es','cn','no','fr','us','au','ca','ar']
 
 small_countries = [c for c in all_countries if c not in big_countries]
-country_groups = {'small_countries': small_countries, **{c: [c] for c in big_countries}}
+country_groups = {**{c: [c] for c in all_countries}}
