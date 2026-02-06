@@ -51,6 +51,10 @@ class EAirSpaceIcaoClass(IntEnum):
   g = 6
   unclassified = 8 # Unclassified / Special Use Airspace (SUA)
 
+class EFrequencyUnit(IntEnum):
+  KHz = 1
+  MHz = 2
+
 class EReferenceDatum(IntEnum):
   GND = 0
   MSL = 1
@@ -113,3 +117,39 @@ RunwayPaved = (
     ERunwayComposition.wood,
     ERunwayComposition.nonBituminousMix,
   )
+
+class EObstacleType(IntEnum):
+  obstacle = 0
+  chimney = 1
+  building = 2
+  wind_turbine = 3
+  tower = 4
+class EHotSpotType(IntEnum):
+  natural = 0
+  artificial = 1
+
+class EHotSpotReliability(IntEnum):
+  poor = 0
+  fair = 1
+  high = 2
+  very_high = 3
+
+class EHotSpotOccurrence(IntEnum):
+  irregular_interval = 0
+  scheduled_interval = 1
+  nearly_constant = 2
+
+class ENavaidType(IntEnum):
+  dme = 0
+  tacan = 1
+  ndb = 2
+  vor = 3
+  vor_dme = 4
+  vortac = 5
+  dvor = 6
+  dvor_dme = 7
+  dvortac = 8
+
+class EHangGlidingType(IntEnum):
+  take_off = 0
+  landing = 1
