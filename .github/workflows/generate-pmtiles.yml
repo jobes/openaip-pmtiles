@@ -28,6 +28,8 @@ jobs:
           pip install requests shapely pyproj
 
       - name: Generate PMTiles
+        env:
+          PYTHONUNBUFFERED: "1"
         run: python main.py
 
       - name: Upload PMTiles artifact
