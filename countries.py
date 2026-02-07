@@ -17,4 +17,4 @@ all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au
 slow_countries = ['ar','au','gl']
 
 quick_countries = [c for c in all_countries if c not in slow_countries]
-country_groups = {'quick_countries': quick_countries,**{c: [c] for c in all_countries}}
+country_groups = {'quick_countries': quick_countries,**{c: [c] for c in slow_countries}}
