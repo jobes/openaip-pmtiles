@@ -81,9 +81,9 @@ def ensure_output_tiles_dir() -> pathlib.Path:
 
 def is_slow_features(country: str, layer: str, properties: DatasetProperties) -> bool:
     if country in slow_features and slow_features[country] and layer in slow_features[country] and slow_features[country][layer]:
-        props = slow_features[country][layer]
-        for key in props:
-            if key in properties and properties[key] == props[key]:
+        slow_props = slow_features[country][layer]
+        for key in slow_props:
+            if key in properties and properties[key] in slow_props[key]:
                 return True
     return False
 
@@ -212,12 +212,6 @@ def main() -> None:
         process_country(group)
         group_elapsed_time = time.time() - group_start_time
         print(f"Finished processing {group} ({group_index}/{len(country_groups)}) in {group_elapsed_time:.2f}s")
-    
-    join_start_time = time.time()
-    join_country_pmtiles()
-    join_elapsed_time = time.time() - join_start_time
-    print(f"Finished joining pmtiles in {join_elapsed_time:.2f}s")
-    print("All pmtiles stored in output_tiles/.")
 
 if __name__ == "__main__":
     main()

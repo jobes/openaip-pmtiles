@@ -20,13 +20,17 @@ quick_countries = [c for c in all_countries if c not in slow_countries]
 country_groups = {'quick_countries': quick_countries,**{c: [c] for c in slow_countries}}
 
 slow_features = {'ar': {
-    'airspaces': {'name':'FIR COMODORO'},
-    'airspaces_border_offset': {'name':'FIR COMODORO'},
-    'airspaces_border_offset_2x': {'name':'FIR COMODORO'}
+    'airspaces': {'name':['FIR COMODORO']},
+    'airspaces_border_offset': {'name':['FIR COMODORO']},
+    'airspaces_border_offset_2x': {'name':['FIR COMODORO']}
     },'au': {
-    'airspaces': {'name':'MELBOURNE FIR CTA A2'},
-    'airspaces_border_offset': {'name':'MELBOURNE FIR CTA A2'},
-    'airspaces_border_offset_2x': {'name':'MELBOURNE FIR CTA A2'}
+    'airspaces': {'name':['MELBOURNE FIR CTA A2']},
+    'airspaces_border_offset': {'name':['MELBOURNE FIR CTA A2']},
+    'airspaces_border_offset_2x': {'name':['MELBOURNE FIR CTA A2']}
+    },'gl': {
+    'airspaces': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']},
+    'airspaces_border_offset': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']},
+    'airspaces_border_offset_2x': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']}
     }
     }
 
