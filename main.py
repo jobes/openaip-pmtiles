@@ -32,7 +32,7 @@ TIPPECANOE_ARGS = [
     "--coalesce-smallest-as-needed",
 ]
 TILE_JOIN_EXECUTABLE = "tile-join"
-TILE_JOIN_ARGS = ["--maximum-tile-size=1000000","-f"]
+TILE_JOIN_ARGS = ["-f"]
 
 PropertiesMapper = Callable[[DatasetProperties], DatasetProperties]
 GeometryMapper = Callable[[Geometry, DatasetProperties], Optional[Geometry]]

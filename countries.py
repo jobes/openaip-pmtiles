@@ -14,8 +14,7 @@ all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au
              'tj','tl','tm','tn','to','tr','tt','tv','tw','tz','ua','ug','us','uy','uz','vc',
              've','vg','vi','vn','vu','wf','ws','xk','ye','yt','za','zm','zw']
 
-big_countries = ['gr','mn','in','sa','ro','kz','nz','gl','tr','ir','za','jp','se','br','gb','pl',
-                'fi','de','it','es','cn','no','fr','us','au','ca','ar']
+slow_countries = ['ar','au','gl']
 
-small_countries = [c for c in all_countries if c not in big_countries]
-country_groups = {**{c: [c] for c in all_countries}}
+quick_countries = [c for c in all_countries if c not in slow_countries]
+country_groups = {'quick_countries': quick_countries,**{c: [c] for c in all_countries}}
