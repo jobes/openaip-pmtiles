@@ -14,7 +14,12 @@ all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au
              'tj','tl','tm','tn','to','tr','tt','tv','tw','tz','ua','ug','us','uy','uz','vc',
              've','vg','vi','vn','vu','wf','ws','xk','ye','yt','za','zm','zw']
 
-slow_countries = ['ar','au','gl']
+slow_countries = ['au','gl']
 
 quick_countries = [c for c in all_countries if c not in slow_countries]
 country_groups = {'quick_countries': quick_countries,**{c: [c] for c in all_countries}}
+
+slow_features = {'ar': {
+    'airspaces': {'name':'FIR COMODORO'},
+    'airspaces_border_offset': {'name':'FIR COMODORO'},
+    'airspaces_border_offset_2x': {'name':'FIR COMODORO'}}}

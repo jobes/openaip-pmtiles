@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
-from countries import country_groups
+from countries import country_groups, slow_features
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
 
 DOWNLOAD_DIR = pathlib.Path("tmp")
@@ -79,14 +79,23 @@ def ensure_output_tiles_dir() -> pathlib.Path:
     OUTPUT_TILES_DIR.mkdir(parents=True, exist_ok=True)
     return OUTPUT_TILES_DIR
 
+def is_slow_features(country: str, layer: str, properties: DatasetProperties) -> bool:
+    if country in slow_features and slow_features[country] and layer in slow_features[country] and slow_features[country][layer]:
+        props = slow_features[country][layer]
+        for key in props:
+            if key in properties and properties[key] == props[key]:
+                return True
+    return False
 
-def write_dataset_geojson(country_group_name: str, dataset: OpenAipDatasetConfig, features: List[Feature]) -> None:
+def write_dataset_geojson(country: str, country_group_name: str, dataset: OpenAipDatasetConfig, features: List[Feature]) -> None:
     """Write a country-specific geojson file for the provided dataset."""
     country_dir = ensure_country_dir(country_group_name)
     file_path = country_dir / f"{dataset.layer_name}.geojson"
     with file_path.open("a", encoding="utf-8") as f:
         feature_id = 0
         for feature in features:
+            if is_slow_features(country, dataset.layer_name, feature["properties"]):
+                continue
             if "geometry" not in feature or "properties" not in feature:
                 continue
             if dataset.geometry_mapper:
@@ -136,14 +145,14 @@ def download_file(country: str, country_group_name: str, file_code: str) -> None
     datasets = [d for d in OPEN_AIP_DATASETS if d.file_code == file_code]
     if response.status_code == 404:
         for dataset in datasets:
-            write_dataset_geojson(country_group_name, dataset, [])
+            write_dataset_geojson(country, country_group_name, dataset, [])
         return
     response.raise_for_status()
     payload_text = response.text
     for dataset in datasets:
         geojson = json.loads(payload_text)
         features: List[Feature] = geojson.get("features") or []
-        write_dataset_geojson(country_group_name, dataset, features)
+        write_dataset_geojson(country, country_group_name, dataset, features)
 
 
 def download_country(country: str, country_group_name: str) -> None:
