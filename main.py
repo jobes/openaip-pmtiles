@@ -1,19 +1,17 @@
 import json
 import pathlib
-import shlex
 import shutil
 import subprocess
-import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
-from countries import country_groups, slow_features
+from countries import countries, slow_features
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
 
 DOWNLOAD_DIR = pathlib.Path("tmp")
-OUTPUT_TILES_DIR = pathlib.Path("output_tiles")
+OUTPUT_TILES_DIR = pathlib.Path(".")
 COMBINED_PM_TILES = OUTPUT_TILES_DIR / "openaip.pmtiles"
 BASE_URL = "https://storage.googleapis.com/storage/v1/b/29f98e10-a489-4c82-ae5e-489dbcd4912f/o"
 INITIAL_GEOJSON_TEMPLATE = '{"type": "FeatureCollection","features": ['
@@ -31,8 +29,6 @@ TIPPECANOE_ARGS = [
     "--preserve-point-density-threshold=0",
     "--coalesce-smallest-as-needed",
 ]
-TILE_JOIN_EXECUTABLE = "tile-join"
-TILE_JOIN_ARGS = ["-f"]
 
 PropertiesMapper = Callable[[DatasetProperties], DatasetProperties]
 GeometryMapper = Callable[[Geometry, DatasetProperties], Optional[Geometry]]
@@ -58,10 +54,6 @@ OPEN_AIP_DATASETS: List[OpenAipDatasetConfig] = [
     OpenAipDatasetConfig("reporting_points", "rpp", get_reporting_points_properties),
 ]
 
-def reset_first_flags() -> None:
-    for dataset in OPEN_AIP_DATASETS:
-        dataset.first = True
-
 
 def ensure_download_dir() -> pathlib.Path:
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,11 +66,6 @@ def ensure_country_dir(country: str) -> pathlib.Path:
     country_dir.mkdir(parents=True, exist_ok=True)
     return country_dir
 
-
-def ensure_output_tiles_dir() -> pathlib.Path:
-    OUTPUT_TILES_DIR.mkdir(parents=True, exist_ok=True)
-    return OUTPUT_TILES_DIR
-
 def is_slow_features(country: str, layer: str, properties: DatasetProperties) -> bool:
     if country in slow_features and slow_features[country] and layer in slow_features[country] and slow_features[country][layer]:
         slow_props = slow_features[country][layer]
@@ -87,10 +74,9 @@ def is_slow_features(country: str, layer: str, properties: DatasetProperties) ->
                 return True
     return False
 
-def write_dataset_geojson(country: str, country_group_name: str, dataset: OpenAipDatasetConfig, features: List[Feature]) -> None:
+def write_dataset_geojson(country: str, dataset: OpenAipDatasetConfig, features: List[Feature]) -> None:
     """Write a country-specific geojson file for the provided dataset."""
-    country_dir = ensure_country_dir(country_group_name)
-    file_path = country_dir / f"{dataset.layer_name}.geojson"
+    file_path = DOWNLOAD_DIR / f"{dataset.layer_name}.geojson"
     with file_path.open("a", encoding="utf-8") as f:
         feature_id = 0
         for feature in features:
@@ -115,103 +101,57 @@ def write_dataset_geojson(country: str, country_group_name: str, dataset: OpenAi
             f.write(json.dumps(feature))
 
 
-def process_country(country_group_name: str) -> None:
+def process_tiles() -> None:
     if shutil.which(TIPPECANOE_EXECUTABLE) is None:
         raise RuntimeError(
             "tippecanoe executable not found on PATH. Install tippecanoe to generate pmtiles."
         )
-
-    country_dir = ensure_country_dir(country_group_name)
-    ensure_output_tiles_dir()
-    geojson_paths = [country_dir / f"{dataset.layer_name}.geojson" for dataset in OPEN_AIP_DATASETS]
-    existing_files = [str(path) for path in geojson_paths if path.exists()]
-
-    if not existing_files:
-        print(f"No geojson files found for {country_group_name}, skipping tippecanoe.")
-        return
-
-    output_file = OUTPUT_TILES_DIR / f"{country_group_name}.pmtiles"
-
-    cmd = [TIPPECANOE_EXECUTABLE, "-o", str(output_file), *TIPPECANOE_ARGS, *existing_files]
-
+    
+    geojson_paths = [str(DOWNLOAD_DIR / f"{dataset.layer_name}.geojson") for dataset in OPEN_AIP_DATASETS]
+    cmd = [TIPPECANOE_EXECUTABLE, "-o", str(COMBINED_PM_TILES), *TIPPECANOE_ARGS, *geojson_paths]
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,)
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(f"tippecanoe failed for {country_group_name}") from exc
+        raise RuntimeError(f"tippecanoe failed") from exc
 
-def download_file(country: str, country_group_name: str, file_code: str) -> None:
+def download_file(country: str, file_code: str) -> None:
     url = f"{BASE_URL}/{country}_{file_code}.geojson?alt=media"
     response = requests.get(url)
     datasets = [d for d in OPEN_AIP_DATASETS if d.file_code == file_code]
     if response.status_code == 404:
-        for dataset in datasets:
-            write_dataset_geojson(country, country_group_name, dataset, [])
         return
     response.raise_for_status()
     payload_text = response.text
     for dataset in datasets:
         geojson = json.loads(payload_text)
         features: List[Feature] = geojson.get("features") or []
-        write_dataset_geojson(country, country_group_name, dataset, features)
+        write_dataset_geojson(country, dataset, features)
 
 
-def download_country(country: str, country_group_name: str) -> None:
+def download_country(country: str) -> None:
     for file_code in set(dataset.file_code for dataset in OPEN_AIP_DATASETS):
-        download_file(country, country_group_name, file_code)
-    
-
-
-def join_country_pmtiles() -> None:
-    pmtiles_files: List[str] = []
-    for country_group_name in country_groups:
-        pmtiles_path = OUTPUT_TILES_DIR / f"{country_group_name}.pmtiles"
-        if pmtiles_path.exists():
-            pmtiles_files.append(str(pmtiles_path))
-        else:
-            print(f"No pmtiles found for {country_group_name}, skipping in tile-join.")
-
-    if not pmtiles_files:
-        print("No country pmtiles found, skipping tile-join.")
-        return
-
-    if shutil.which(TILE_JOIN_EXECUTABLE) is None:
-        raise RuntimeError(
-            "tile-join executable not found on PATH. Install the tippecanoe tools to combine pmtiles."
-        )
-
-    ensure_output_tiles_dir()
-    cmd = [TILE_JOIN_EXECUTABLE, "-o", str(COMBINED_PM_TILES), *TILE_JOIN_ARGS, *pmtiles_files]
-    print(f"Running tile-join: {shlex.join(cmd)}")
-
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError("tile-join failed while combining pmtiles") from exc
+        download_file(country, file_code)
 
 def main() -> None:
     ensure_download_dir()
-    for group in country_groups:
-        group_start_time = time.time()
-        group_index = list(country_groups).index(group) + 1
-        reset_first_flags()
-        for dataset in OPEN_AIP_DATASETS:
-                file_path = ensure_country_dir(group) / f"{dataset.layer_name}.geojson"
-                with file_path.open("w", encoding="utf-8") as f:
-                    f.write(INITIAL_GEOJSON_TEMPLATE)
-        for country in country_groups[group]:
-            country_index = list(country_groups[group]).index(country) + 1
-            download_country(country, group)
-            print(f"geojson generated for {group} {country} ({country_index}/{len(country_groups[group])})")
-        
 
-        for dataset in OPEN_AIP_DATASETS:
-            file_path = ensure_country_dir(group) / f"{dataset.layer_name}.geojson"
-            with file_path.open("a", encoding="utf-8") as f:
-                f.write("]}")
+       
+    for dataset in OPEN_AIP_DATASETS:
+        with (DOWNLOAD_DIR / f"{dataset.layer_name}.geojson").open("w", encoding="utf-8") as f:
+            f.write(INITIAL_GEOJSON_TEMPLATE)
 
-        process_country(group)
-        group_elapsed_time = time.time() - group_start_time
-        print(f"Finished processing {group} ({group_index}/{len(country_groups)}) in {group_elapsed_time:.2f}s")
+    for country in countries:
+        country_index = list(countries).index(country) + 1
+        download_country(country)
+        print(f"geojson generated for {country} ({country_index}/{len(countries)})")
+    
+
+    for dataset in OPEN_AIP_DATASETS:
+        with (DOWNLOAD_DIR / f"{dataset.layer_name}.geojson").open("a", encoding="utf-8") as f:
+            f.write("]}")
+
+    process_tiles()
+       
 
 if __name__ == "__main__":
     main()

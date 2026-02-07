@@ -1,4 +1,4 @@
-all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au','aw','ax','az',
+countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au','aw','ax','az',
              'ba','bb','bd','be','bf','bg','bh','bi','bj','bl','bm','bn','bo','bq','br','bs',
              'bt','bw','by','bz','ca','cc','cd','cf','cg','ch','ci','ck','cl','cm','cn','co',
              'cr','cu','cv','cw','cx','cy','cz','de','dj','dk','dm','do','dz','ec','ee','eg',
@@ -14,11 +14,7 @@ all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au
              'tj','tl','tm','tn','to','tr','tt','tv','tw','tz','ua','ug','us','uy','uz','vc',
              've','vg','vi','vn','vu','wf','ws','xk','ye','yt','za','zm','zw']
 
-slow_countries = ['gl']
-
-quick_countries = [c for c in all_countries if c not in slow_countries]
-country_groups = {'quick_countries': quick_countries,**{c: [c] for c in slow_countries}}
-
+# this features are too slow to generate, they will be excluded from final pmtiles
 slow_features = {'ar': {
     'airspaces': {'name':['FIR COMODORO']},
     'airspaces_border_offset': {'name':['FIR COMODORO']},
