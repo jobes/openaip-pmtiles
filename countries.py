@@ -1,21 +1,33 @@
-all_countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au','aw','ax','az',
-             'ba','bb','bd','be','bf','bg','bh','bi','bj','bl','bm','bn','bo','bq','br','bs',
-             'bt','bw','by','bz','ca','cc','cd','cf','cg','ch','ci','ck','cl','cm','cn','co',
-             'cr','cu','cv','cw','cx','cy','cz','de','dj','dk','dm','do','dz','ec','ee','eg',
-             'eh','er','es','et','fi','fj','fk','fm','fo','fr','ga','gb','gd','ge','gf','gg',
-             'gh','gi','gl','gm','gn','gp','gq','gr','gt','gu','gw','gy','hk','hn','hr','ht',
-             'hu','id','ie','il','im','in','io','iq','ir','is','it','je','jm','jo','jp','ke',
-             'kg','kh','ki','km','kn','kp','kr','kw','ky','kz','la','lb','lc','li','lk','lr',
-             'ls','lt','lu','lv','ly','ma','mc','md','me','mg','mh','mk','ml','mm','mn','mp',
-             'mq','mr','ms','mt','mu','mv','mw','mx','my','mz','na','nc','ne','nf','ng','ni',
-             'nl','no','np','nr','nu','nz','om','pa','pe','pf','pg','ph','pk','pl','pm','pr',
-             'ps','pt','pw','py','qa','re','ro','rs','ru','rw','sa','sb','sc','sd','se','sg',
-             'sh','si','sk','sl','sn','so','sr','ss','sv','sx','sy','sz','tc','td','tg','th',
-             'tj','tl','tm','tn','to','tr','tt','tv','tw','tz','ua','ug','us','uy','uz','vc',
-             've','vg','vi','vn','vu','wf','ws','xk','ye','yt','za','zm','zw']
+# countries = ['ad','ae','af','ag','ai','al','am','ao','aq','ar','as','at','au','aw','ax','az',
+#              'ba','bb','bd','be','bf','bg','bh','bi','bj','bl','bm','bn','bo','bq','br','bs',
+#              'bt','bw','by','bz','ca','cc','cd','cf','cg','ch','ci','ck','cl','cm','cn','co',
+#              'cr','cu','cv','cw','cx','cy','cz','de','dj','dk','dm','do','dz','ec','ee','eg',
+#              'eh','er','es','et','fi','fj','fk','fm','fo','fr','ga','gb','gd','ge','gf','gg',
+#              'gh','gi','gl','gm','gn','gp','gq','gr','gt','gu','gw','gy','hk','hn','hr','ht',
+#              'hu','id','ie','il','im','in','io','iq','ir','is','it','je','jm','jo','jp','ke',
+#              'kg','kh','ki','km','kn','kp','kr','kw','ky','kz','la','lb','lc','li','lk','lr',
+#              'ls','lt','lu','lv','ly','ma','mc','md','me','mg','mh','mk','ml','mm','mn','mp',
+#              'mq','mr','ms','mt','mu','mv','mw','mx','my','mz','na','nc','ne','nf','ng','ni',
+#              'nl','no','np','nr','nu','nz','om','pa','pe','pf','pg','ph','pk','pl','pm','pr',
+#              'ps','pt','pw','py','qa','re','ro','rs','ru','rw','sa','sb','sc','sd','se','sg',
+#              'sh','si','sk','sl','sn','so','sr','ss','sv','sx','sy','sz','tc','td','tg','th',
+#              'tj','tl','tm','tn','to','tr','tt','tv','tw','tz','ua','ug','us','uy','uz','vc',
+#              've','vg','vi','vn','vu','wf','ws','xk','ye','yt','za','zm','zw']
+countries = ['sk']
 
-big_countries = ['gr','mn','in','sa','ro','kz','nz','gl','tr','ir','za','jp','se','br','gb','pl',
-                'fi','de','it','es','cn','no','fr','us','au','ca','ar']
+# this features are too slow to generate, they will be excluded from final pmtiles
+slow_features = {'ar': {
+    'airspaces': {'name':['FIR COMODORO']},
+    'airspaces_border_offset': {'name':['FIR COMODORO']},
+    'airspaces_border_offset_2x': {'name':['FIR COMODORO']}
+    },'au': {
+    'airspaces': {'name':['MELBOURNE FIR CTA A2']},
+    'airspaces_border_offset': {'name':['MELBOURNE FIR CTA A2']},
+    'airspaces_border_offset_2x': {'name':['MELBOURNE FIR CTA A2']}
+    },'gl': {
+    'airspaces': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']},
+    'airspaces_border_offset': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']},
+    'airspaces_border_offset_2x': {'name':['NUUK SECTOR NORTH', 'BGGL FIR']}
+    }
+    }
 
-small_countries = [c for c in all_countries if c not in big_countries]
-country_groups = {'small_countries': small_countries, **{c: [c] for c in big_countries}}
