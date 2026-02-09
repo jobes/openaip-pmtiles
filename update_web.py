@@ -10,7 +10,7 @@ def update_generated_date() -> None:
 	The date is written in a human-friendly format, e.g. "09 February 2026".
 	"""
 
-	index_path = Path(__file__).with_name("index.html")
+	index_path = Path(__file__).parent / "web" / "index.html"
 
 	if not index_path.exists():
 		return
