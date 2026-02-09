@@ -5,6 +5,15 @@ on:
   #schedule:
   #  - cron: "0 1 * * *"
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-tiles:
     runs-on: ubuntu-latest
@@ -44,3 +53,25 @@ jobs:
         with:
           name: pmtiles-outputs
           path: openaip.pmtiles
+
+      - name: Update Generated Date in Webpage
+        run: python update_web.py
+
+  deploy-pages:
+    needs: build-tiles
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload index.html artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./index.html
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
