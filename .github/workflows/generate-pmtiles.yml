@@ -51,6 +51,11 @@ jobs:
       - name: Update Generated Date in Webpage
         run: python update_web.py
 
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./web
+
   upload-to-hugging-face:
     needs: build-tiles
     runs-on: ubuntu-latest
@@ -81,20 +86,12 @@ jobs:
         run: python upload_to_hugging_face.py
 
   deploy-pages:
-    needs: build-tiles
+    needs: upload-to-hugging-face
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Upload index.html artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./web
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -67,7 +67,7 @@ The script downloads every dataset for every country listed in `countries.py`. D
 
 ## Output
 
-- Individual country tiles: `output_tiles/<country>.pmtiles`
 - Combined global tileset: `output_tiles/openaip.pmtiles`
+- Daily generated global pmtiles available on https://jobes.github.io/openaip-pmtiles/
 
 These PMTiles archives can be hosted directly (e.g., Cloudflare R2, S3) or streamed via PMTiles-aware clients like MapLibre GL JS.
