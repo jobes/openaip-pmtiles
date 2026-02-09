@@ -1,9 +1,9 @@
 name: Generate PMTiles
 
 on:
+  schedule:
   workflow_dispatch:
-  #schedule:
-  #  - cron: "0 1 * * *"
+    - cron: "0 1 * * *"
 
 permissions:
   contents: read
