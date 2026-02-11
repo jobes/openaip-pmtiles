@@ -23,10 +23,10 @@ def heightFormatter(value: float, unit: EHeightUnit, datum: EReferenceDatum) -> 
 def frequencyFormatter(value: float, unit: EFrequencyUnit) -> str:
     return f"{value}{unit.name}"
 
-
 def get_airspace_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'airspace'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['type'] = EAirSpaceType(properties['type']).name
@@ -92,6 +92,7 @@ def get_airports_properties(properties: DatasetProperties) -> DatasetProperties:
     runways = cast(List[DatasetProperties], properties.get('runways') or [])
     main_runway = next((r for r in runways if r.get("mainRunway") is True), None)
     result: DatasetProperties = {}
+    result['feature_type'] = 'airport'
     result['type'] = EAirportType(properties['type']).name
     result['runway_surface'] = 'paved' if main_runway and main_runway['surface'] and main_runway['surface']['mainComposite'] in RunwayPaved else 'unpaved'
     result['runway_rotation'] = main_runway['trueHeading'] if main_runway else None
@@ -113,6 +114,7 @@ def get_airports_properties(properties: DatasetProperties) -> DatasetProperties:
 def get_obstacle_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'obstacle'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['type'] = EObstacleType(properties['type']).name
@@ -123,6 +125,7 @@ def get_obstacle_properties(properties: DatasetProperties) -> DatasetProperties:
 def get_reporting_points_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'reportingPoint'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['name'] = properties.get("name", "")
@@ -133,6 +136,7 @@ def get_reporting_points_properties(properties: DatasetProperties) -> DatasetPro
 def get_hotspots_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'hotspot'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['name'] = properties.get("name", "")
@@ -146,6 +150,7 @@ def get_hotspots_properties(properties: DatasetProperties) -> DatasetProperties:
 def get_navaids_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'navaid'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['type'] = ENavaidType(properties['type']).name
@@ -159,6 +164,7 @@ def get_navaids_properties(properties: DatasetProperties) -> DatasetProperties:
 def get_hang_glidings_properties(properties: DatasetProperties) -> DatasetProperties:
     """Return airspace-specific metadata for PMTiles ingestion."""
     result: DatasetProperties = {}
+    result['feature_type'] = 'hangGliding'
     result['source_id'] = properties['_id']
     result['country'] = properties['country']
     result['type'] = EHangGlidingType(properties['type']).name
