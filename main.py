@@ -203,7 +203,12 @@ def get_gcs_session() -> requests.Session:
         return _gcs_session
 
     try:
-        credentials, _ = google.auth.default()
+        # The scope is required: with WIF the credentials impersonate the
+        # service account, and iamcredentials.generateAccessToken rejects the
+        # request (400 INVALID_ARGUMENT) when no scope is provided.
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
     except DefaultCredentialsError as exc:
         raise RuntimeError(
             "No Google Cloud credentials found. Set up Application Default "
