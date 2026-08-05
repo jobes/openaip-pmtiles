@@ -1,11 +1,15 @@
 import json
+import os
 import pathlib
 import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
+import google.auth
 import requests
+from google.auth.exceptions import DefaultCredentialsError
+from google.auth.transport.requests import AuthorizedSession
 
 from countries import countries, slow_features
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
@@ -14,6 +18,43 @@ DOWNLOAD_DIR = pathlib.Path("tmp")
 OUTPUT_TILES_DIR = pathlib.Path(".")
 COMBINED_PM_TILES = OUTPUT_TILES_DIR / "openaip.pmtiles"
 BASE_URL = "https://storage.googleapis.com/storage/v1/b/29f98e10-a489-4c82-ae5e-489dbcd4912f/o"
+
+
+def load_env_file(path: pathlib.Path = pathlib.Path(__file__).with_name(".env")) -> None:
+    """Load KEY=VALUE pairs from a .env file into os.environ.
+
+    Real environment variables take precedence over the file. The parser is
+    intentionally tiny (quotes, inline comments, blank lines) so the project
+    needs no extra dependency like python-dotenv.
+    """
+
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        # Drop inline comments (e.g. `VALUE=abc # note`).
+        if " #" in value:
+            value = value.split(" #", 1)[0].strip()
+        # Strip surrounding matching quotes.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_env_file()
+
+# The bucket is a "requester pays" bucket: every request must name the
+# Google Cloud billing project that will be charged for the data transfer.
+# NEVER hardcode the project ID here - anyone with access to the repo could
+# then use your billing project. Provide it via the GCS_USER_PROJECT
+# environment variable (or the local .env file) instead.
+GCS_USER_PROJECT = os.environ.get("GCS_USER_PROJECT", "")
 INITIAL_GEOJSON_TEMPLATE = '{"type": "FeatureCollection","features": ['
 TIPPECANOE_EXECUTABLE = "tippecanoe"
 TIPPECANOE_ARGS = [
@@ -143,9 +184,55 @@ def file_datasets(file_code: str) -> List[OpenAipDatasetConfig]:
     return [dataset for dataset in OPEN_AIP_DATASETS if dataset.file_code == file_code]
 
 
+_gcs_session = None
+
+
+def get_gcs_session() -> requests.Session:
+    """Return an authenticated GCS session (created once and reused).
+
+    Requester-pays buckets never accept anonymous requests, so the request must
+    be authenticated. Credentials are resolved via Google Application Default
+    Credentials (ADC):
+      - locally: `gcloud auth application-default login`, or a service-account
+        key pointed to by GOOGLE_APPLICATION_CREDENTIALS
+      - GitHub Actions: the `google-github-actions/auth` step (WIF/OIDC)
+    """
+
+    global _gcs_session
+    if _gcs_session is not None:
+        return _gcs_session
+
+    try:
+        credentials, _ = google.auth.default()
+    except DefaultCredentialsError as exc:
+        raise RuntimeError(
+            "No Google Cloud credentials found. Set up Application Default "
+            "Credentials (ADC):\n"
+            "  1) gcloud auth application-default login, or\n"
+            "  2) set GOOGLE_APPLICATION_CREDENTIALS to a service-account key\n"
+            "  (in GitHub Actions the google-github-actions/auth step does this)"
+        ) from exc
+
+    session = AuthorizedSession(credentials)
+    if GCS_USER_PROJECT:
+        session.headers["x-goog-user-project"] = GCS_USER_PROJECT
+    _gcs_session = session
+    return session
+
+
 def download_file(country: str, file_code: str) -> None:
-    url = f"{BASE_URL}/{country}_{file_code}.geojson?alt=media"
-    response = requests.get(url)
+    if not GCS_USER_PROJECT:
+        raise RuntimeError(
+            "GCS_USER_PROJECT is not set. This bucket is a requester-pays bucket "
+            "and requires a GCP project ID with billing enabled. Set the "
+            "GCS_USER_PROJECT environment variable, e.g.:\n"
+            "    export GCS_USER_PROJECT='your-project-id'"
+        )
+    url = f"{BASE_URL}/{country}_{file_code}.geojson"
+    response = get_gcs_session().get(
+        url,
+        params={"alt": "media", "userProject": GCS_USER_PROJECT},
+    )
     if response.status_code == 404:
         return
     response.raise_for_status()

@@ -34,11 +34,21 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests shapely pyproj huggingface_hub
+          pip install requests shapely pyproj huggingface_hub google-auth
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          # Set these two secrets in the repo settings (see readme).
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Generate PMTiles
         env:
           PYTHONUNBUFFERED: "1"
+          # Billing project charged for the requester-pays bucket downloads.
+          GCS_USER_PROJECT: ${{ secrets.GCS_USER_PROJECT }}
         run: python main.py
 
       - name: Upload PMTiles artifact

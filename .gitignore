@@ -1,3 +1,7 @@
 tmp/
 output_tiles/
 __pycache__/
+
+# Local secrets / environment
+.env
+.env.*
