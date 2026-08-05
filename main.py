@@ -240,7 +240,12 @@ def download_file(country: str, file_code: str) -> None:
     )
     if response.status_code == 404:
         return
-    response.raise_for_status()
+    if not response.ok:
+        # Include the GCS error body so the exact reason (billing vs. IAM
+        # permission) is visible in the logs.
+        raise RuntimeError(
+            f"GCS download failed with HTTP {response.status_code}: {response.text}"
+        )
     payload_text = response.text
     for dataset in file_datasets(file_code):
         geojson = json.loads(payload_text)
