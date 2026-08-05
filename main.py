@@ -15,6 +15,7 @@ from countries import countries, slow_features
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
 
 DOWNLOAD_DIR = pathlib.Path("tmp")
+GEOJSONS_DIR = DOWNLOAD_DIR / "geojsons"
 OUTPUT_TILES_DIR = pathlib.Path(".")
 COMBINED_PM_TILES = OUTPUT_TILES_DIR / "openaip.pmtiles"
 BASE_URL = "https://storage.googleapis.com/storage/v1/b/29f98e10-a489-4c82-ae5e-489dbcd4912f/o"
@@ -106,6 +107,22 @@ def ensure_country_dir(country: str) -> pathlib.Path:
     country_dir = ensure_download_dir() / country
     country_dir.mkdir(parents=True, exist_ok=True)
     return country_dir
+
+
+def clear_geojsons_dir() -> None:
+    """Remove previously saved raw geojson files so each run uploads only the
+    current set of countries."""
+    if GEOJSONS_DIR.exists():
+        shutil.rmtree(GEOJSONS_DIR)
+
+
+def save_raw_geojson(country: str, file_code: str, payload: str) -> None:
+    """Save the raw downloaded GeoJSON for apt/asp layers under tmp/geojsons/.
+
+    These files are later uploaded to the `geojsons` folder on Hugging Face.
+    """
+    GEOJSONS_DIR.mkdir(parents=True, exist_ok=True)
+    (GEOJSONS_DIR / f"{country}_{file_code}.geojson").write_text(payload, encoding="utf-8")
 
 def is_slow_features(country: str, layer: str, properties: DatasetProperties) -> bool:
     slow_by_layer = slow_features.get(country, {})
@@ -247,6 +264,8 @@ def download_file(country: str, file_code: str) -> None:
             f"GCS download failed with HTTP {response.status_code}: {response.text}"
         )
     payload_text = response.text
+    if file_code in ("apt", "asp"):
+        save_raw_geojson(country, file_code, payload_text)
     for dataset in file_datasets(file_code):
         geojson = json.loads(payload_text)
         features: List[Feature] = geojson.get("features") or []
@@ -260,6 +279,7 @@ def download_country(country: str) -> None:
 
 def main() -> None:
     ensure_download_dir()
+    clear_geojsons_dir()
     init_geojson_files(OPEN_AIP_DATASETS)
     for index, country in enumerate(countries, start=1):
         download_country(country)
