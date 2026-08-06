@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from huggingface_hub import upload_file
+from huggingface_hub import CommitOperationAdd, HfApi, upload_file
 
 GEOJSONS_DIR = Path("tmp/geojsons")
 
@@ -16,7 +16,13 @@ def format_size(num_bytes: int) -> str:
 
 
 def upload_geojsons(token: str | None, repo_id: str) -> None:
-    """Upload all raw apt/asp geojson files into the `geojsons/` folder."""
+    """Upload all raw apt/asp geojson files into the `geojsons/` folder.
+
+    All files are uploaded in a single commit. Uploading each file with its
+    own `upload_file()` call creates one commit per file, which quickly
+    exhausts the Hugging Face rate limit (HTTP 429 Too Many Requests) when
+    there are hundreds of per-country files.
+    """
     if not GEOJSONS_DIR.exists():
         print("No geojsons directory found, skipping upload")
         return
@@ -25,20 +31,29 @@ def upload_geojsons(token: str | None, repo_id: str) -> None:
         print("No geojson files found in tmp/geojsons, skipping upload")
         return
 
-    print(f"Uploading {len(files)} geojson files to {repo_id}/geojsons ...")
-    for path in files:
-        size = path.stat().st_size
-        upload_file(
-            path_or_fileobj=str(path),
+    operations = [
+        CommitOperationAdd(
             path_in_repo=f"geojsons/{path.name}",
-            repo_id=repo_id,
-            repo_type="dataset",
-            token=token,
+            path_or_fileobj=str(path),
         )
-        print(f"  Uploaded {path.name} ({format_size(size)})")
+        for path in files
+    ]
 
     total_size = sum(path.stat().st_size for path in files)
-    print(f"Upload finished: {len(files)} files, total {format_size(total_size)}")
+    print(
+        f"Uploading {len(files)} geojson files "
+        f"(total {format_size(total_size)}) to {repo_id}/geojsons in a single commit ..."
+    )
+    for path in files:
+        print(f"  {path.name} ({format_size(path.stat().st_size)})")
+
+    HfApi(token=token).create_commit(
+        repo_id=repo_id,
+        repo_type="dataset",
+        operations=operations,
+        commit_message="Update raw geojsons",
+    )
+    print("Upload finished")
 
 
 if __name__ == "__main__":
