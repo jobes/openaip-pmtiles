@@ -3,7 +3,9 @@ name: Generate PMTiles
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 1 * * *"
+    # Once a week, Sunday 04:00 UTC — early morning on a weekend,
+    # when GitHub Actions runners are least busy.
+    - cron: "0 4 * * 0"
 
 permissions:
   contents: read

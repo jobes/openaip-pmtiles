@@ -1,0 +1,42 @@
+name: Keep repository active
+
+# GitHub automatically disables scheduled workflows (like generate-pmtiles.yml)
+# in repositories that have had no activity for 60 days. A scheduled workflow
+# run itself does NOT count as repository activity — only real commits, issues,
+# and pull requests do. This workflow runs once a month and pushes a tiny
+# commit, so the repository always has recent activity and the scheduled
+# "Generate PMTiles" workflow keeps running automatically.
+on:
+  schedule:
+    # Once a month on the 1st at 00:00 UTC — comfortably inside the 60-day window.
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "keepalive"
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update keepalive timestamp
+        run: date -u +%Y-%m-%dT%H:%M:%SZ > .github/keepalive
+
+      - name: Commit and push changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/keepalive
+            git commit -m "chore: keep repository active [skip ci]"
+            git push
+          else
+            echo "No changes to commit - repository is already active."
+          fi
