@@ -58,7 +58,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pmtiles-outputs
-          path: openaip.pmtiles
+          # Include the raw per-country apt/asp GeoJSON files so the
+          # upload-to-hugging-face job can push them to the `geojsons/`
+          # folder on Hugging Face. Uploading the directory (without a
+          # trailing slash) preserves the tmp/geojsons/ path, so downloading
+          # to "." restores tmp/geojsons/*.geojson in the upload job.
+          path: |
+            openaip.pmtiles
+            tmp/geojsons
 
       - name: Update Generated Date in Webpage
         run: python update_web.py
