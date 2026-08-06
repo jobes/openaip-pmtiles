@@ -34,8 +34,30 @@
   </head>
   <body class="flex flex-col min-h-screen">
     <!-- Header -->
-    <header class="bg-slate-900 text-white py-8">
-      <div class="container mx-auto px-4 text-center">
+    <header class="bg-slate-900 text-white">
+      <nav
+        class="container mx-auto px-4 py-4 flex items-center justify-between"
+      >
+        <a href="index.html" class="flex items-center gap-2 font-semibold">
+          <i class="fa-solid fa-plane-departure text-blue-400"></i>
+          <span>OpenAIP PMTile Generator</span>
+        </a>
+        <div class="flex items-center gap-6 text-sm">
+          <a
+            href="index.html"
+            class="text-white font-semibold border-b-2 border-blue-400 pb-0.5"
+          >
+            Home
+          </a>
+          <a
+            href="geojsons.html"
+            class="text-slate-300 hover:text-white transition"
+          >
+            GeoJSON Downloads
+          </a>
+        </div>
+      </nav>
+      <div class="container mx-auto px-4 py-8 text-center">
         <i class="fa-solid fa-plane-departure text-4xl mb-4 text-blue-400"></i>
         <h1 class="text-3xl font-bold tracking-tight">
           OpenAIP PMTile Generator
@@ -156,6 +178,41 @@
         <p class="mt-4 text-sm text-slate-400">
           Format: PMTiles (Vector) | License: CC BY-NC-SA
         </p>
+      </section>
+
+      <!-- Raw GeoJSON Section -->
+      <section class="card p-8">
+        <div class="flex items-center gap-3 mb-4">
+          <i class="fa-solid fa-file-arrow-down text-blue-500 text-xl"></i>
+          <h2 class="text-2xl font-semibold text-slate-800">
+            Raw Country GeoJSON
+          </h2>
+        </div>
+        <p class="text-slate-600 leading-relaxed mb-6">
+          Prefer the original source data? Download the raw OpenAIP
+          <strong>airport</strong> and <strong>airspace</strong> GeoJSON files
+          per country &mdash; ideal for inspection, offline use, or importing
+          into your own pipeline. Browse all 237 countries on a dedicated,
+          searchable page.
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <a
+            href="geojsons.html"
+            class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-full transition-all transform hover:scale-105 shadow"
+          >
+            <i class="fa-solid fa-file-arrow-down"></i>
+            Browse GeoJSON files
+          </a>
+          <a
+            href="https://huggingface.co/datasets/jobes666/openaip-mptiles/tree/main/geojsons"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium transition"
+          >
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            Open dataset folder
+          </a>
+        </div>
       </section>
     </main>
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from web_generator import generate_geojsons_page
+
 
 def update_generated_date() -> None:
 	"""Replace the {{GENERATED_DATE}} placeholder in index.html with today's date.
@@ -29,4 +31,6 @@ def update_generated_date() -> None:
 
 if __name__ == "__main__":
 	update_generated_date()
+	# Keep the GeoJSON download page in sync with the current country list.
+	generate_geojsons_page()
 
