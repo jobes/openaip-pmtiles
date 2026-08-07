@@ -1,10 +1,11 @@
 """Audit the source GCS bucket against the files the export pipeline expects.
 
-Lists every ``*.geojson`` object stored in the source bucket, prints it to the
-console together with a flag telling whether that file is one the pipeline
-tries to export (a country from ``countries.py`` x a file code from
-``OPEN_AIP_DATASETS``). At the end it prints the files the pipeline tries to
-export that are missing from the bucket.
+Lists the airport/airspace ``*.geojson`` objects stored in the source bucket,
+prints each to the console together with a flag telling whether that file is
+one the pipeline tries to export (a country from ``countries.py`` x the
+``apt``/``asp`` file codes). Files for any other dataset are ignored. At the
+end it prints the files the pipeline tries to export that are missing from
+the bucket.
 
 Usage:
     python check_bucket.py
@@ -17,7 +18,6 @@ import sys
 from main import (
     BASE_URL,
     GCS_USER_PROJECT,
-    OPEN_AIP_DATASETS,
     countries,
     get_gcs_session,
 )
@@ -64,24 +64,50 @@ def list_bucket_geojsons() -> list[str]:
     return names
 
 
+# Only the raw airport (apt) and airspace (asp) GeoJSON files are exported
+# (they are what gets uploaded to Hugging Face and listed on the download
+# page). Files for the other OpenAIP datasets are ignored by this audit.
+EXPORT_FILE_CODES = ("apt", "asp")
+
+
+def file_code_of(name: str) -> str | None:
+    """Return the file code (e.g. ``apt``) from a ``<country>_<code>.geojson``
+    name, or ``None`` when the name does not match that pattern."""
+
+    parts = name.split("_")
+    if len(parts) != 2 or not parts[1].endswith(".geojson"):
+        return None
+    return parts[1][: -len(".geojson")]
+
+
 def expected_export_files() -> set[str]:
     """Return the set of ``<country>_<file_code>.geojson`` names the pipeline
-    tries to export (see ``main.download_file``)."""
+    tries to export (airports ``apt`` and airspaces ``asp`` only)."""
 
-    file_codes = {dataset.file_code for dataset in OPEN_AIP_DATASETS}
     return {
         f"{country}_{file_code}.geojson"
         for country in countries
-        for file_code in file_codes
+        for file_code in EXPORT_FILE_CODES
     }
 
 
 def main() -> None:
-    bucket_files = sorted(list_bucket_geojsons())
+    all_bucket_files = sorted(list_bucket_geojsons())
     expected = expected_export_files()
+
+    # Only airports/airspaces are exported - ignore every other geojson file.
+    bucket_files = [
+        name
+        for name in all_bucket_files
+        if file_code_of(name) in EXPORT_FILE_CODES
+    ]
+    ignored = len(all_bucket_files) - len(bucket_files)
     bucket_set = set(bucket_files)
 
-    print(f"Found {len(bucket_files)} geojson files in the bucket\n")
+    print(f"Found {len(bucket_files)} airport/airspace geojson files in the bucket")
+    if ignored:
+        print(f"Ignored {ignored} non-airport/airspace geojson files")
+    print()
 
     exported = 0
     for name in bucket_files:
@@ -104,6 +130,31 @@ def main() -> None:
             print(f"  {name}")
     else:
         print("  none")
+
+    # Country-level summary. A country is "in the bucket" when at least one of
+    # its geojson files is stored there; it is "exported" when it is listed in
+    # countries.py.
+    bucket_countries = {name.split("_", 1)[0] for name in bucket_files}
+    export_countries = set(countries)
+
+    in_bucket_exported = sorted(bucket_countries & export_countries)
+    in_bucket_skipped = sorted(bucket_countries - export_countries)
+    exported_missing = sorted(export_countries - bucket_countries)
+
+    print(
+        f"\nCountries in the bucket AND exported ({len(in_bucket_exported)}):"
+    )
+    print("  " + (", ".join(in_bucket_exported) if in_bucket_exported else "none"))
+
+    print(
+        f"\nCountries in the bucket but NOT exported ({len(in_bucket_skipped)}):"
+    )
+    print("  " + (", ".join(in_bucket_skipped) if in_bucket_skipped else "none"))
+
+    print(
+        f"\nCountries exported but NOT in the bucket ({len(exported_missing)}):"
+    )
+    print("  " + (", ".join(exported_missing) if exported_missing else "none"))
 
 
 if __name__ == "__main__":
