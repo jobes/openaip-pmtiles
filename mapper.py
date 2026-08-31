@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from shapely import transform
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
+from shapely.validation import make_valid
 from enums import EAirSpaceIcaoClass, EAirSpaceType, EAirportType, EFrequencyUnit, EHangGlidingType, EHeightUnit, EHotSpotOccurrence, EHotSpotReliability, EHotSpotType, ENavaidType, EObstacleType, EReferenceDatum, RunwayPaved
 import pyproj
 
@@ -56,9 +57,9 @@ def get_airspace_borders_geometry(geometry: Geometry, properties: DatasetPropert
         to_utm = pyproj.Transformer.from_crs("EPSG:4326", aeqd_crs, always_xy=True).transform
         to_wgs = pyproj.Transformer.from_crs(aeqd_crs, "EPSG:4326", always_xy=True).transform
 
-        polygon_utm = transform(to_utm, polygon)
-        inner_polygon = polygon_utm.buffer(-300)
-        border_utm = polygon_utm.difference(inner_polygon)
+        polygon_utm = make_valid(transform(to_utm, polygon))
+        inner_polygon = make_valid(polygon_utm.buffer(-300))
+        border_utm = make_valid(polygon_utm.difference(inner_polygon))
         border = transform(to_wgs, border_utm)
         return  mapping(border)
 
@@ -72,8 +73,8 @@ def get_airspace_borders2x_geometry(geometry: Geometry, properties: DatasetPrope
         to_utm = pyproj.Transformer.from_crs("EPSG:4326", aeqd_crs, always_xy=True).transform
         to_wgs = pyproj.Transformer.from_crs(aeqd_crs, "EPSG:4326", always_xy=True).transform
 
-        polygon_utm = transform(to_utm, polygon)
-        border_utm = polygon_utm.difference(polygon_utm.buffer(-300))
+        polygon_utm = make_valid(transform(to_utm, polygon))
+        border_utm = make_valid(polygon_utm.difference(make_valid(polygon_utm.buffer(-300))))
         border = transform(to_wgs, border_utm)
         return  mapping(border)
 
