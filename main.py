@@ -211,9 +211,6 @@ def download_file(country: str, file_code: str) -> None:
 
 
 def download_country(country: str) -> None:
-    # The S3 bucket keys are lowercase ISO codes (e.g. `ad_apt.geojson`), and
-    # `slow_features` keys are lowercase too, so normalize before use.
-    country = country.lower()
     file_codes = {dataset.file_code for dataset in OPEN_AIP_DATASETS}
     for file_code in file_codes:
         download_file(country, file_code)
