@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import requests
 
-from countries import countries, slow_features
+from countries import countries
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
 
 DOWNLOAD_DIR = pathlib.Path("tmp")
@@ -115,17 +115,6 @@ def save_raw_geojson(country: str, file_code: str, payload: str) -> None:
     GEOJSONS_DIR.mkdir(parents=True, exist_ok=True)
     (GEOJSONS_DIR / f"{country}_{file_code}.geojson").write_text(payload, encoding="utf-8")
 
-def is_slow_features(country: str, layer: str, properties: DatasetProperties) -> bool:
-    slow_by_layer = slow_features.get(country, {})
-    slow_props = slow_by_layer.get(layer, {})
-    if not slow_props:
-        return False
-    for key, values in slow_props.items():
-        if key in properties and properties[key] in values:
-                return True
-    return False
-
-
 def geojson_path(dataset: OpenAipDatasetConfig) -> pathlib.Path:
     return DOWNLOAD_DIR / f"{dataset.layer_name}.geojson"
 
@@ -151,8 +140,6 @@ def write_dataset_geojson(
         feature_id = 0
         for feature in features:
             if "geometry" not in feature or "properties" not in feature:
-                continue
-            if is_slow_features(country, dataset.layer_name, feature["properties"]):
                 continue
             if dataset.geometry_mapper:
                 geometry = dataset.geometry_mapper(feature["geometry"], feature["properties"])
