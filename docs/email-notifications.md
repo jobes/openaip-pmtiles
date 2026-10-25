@@ -1,6 +1,6 @@
 # Email notifications for PMTiles problems
 
-`Email PMTiles problems` sends an email only when `Generate PMTiles` on `main`
+`Email PMTiles problems` automatically sends an email only when `Generate PMTiles` on `main`
 finishes with `failure` or `cancelled`. Successful, skipped, and neutral runs do
 not send email. This covers scheduled runs and manual runs, including reruns.
 Each failed or cancelled attempt sends its own notification.
@@ -39,6 +39,19 @@ Gmail delivery uses `smtp.gmail.com:465` with certificate-verified TLS and Pytho
 standard library. No third-party mail action, package, repository checkout, or
 GitHub API permission is needed. Credentials are never printed.
 
+## Test Gmail delivery now
+
+1. Open [Email PMTiles problems](https://github.com/jobes/openaip-pmtiles/actions/workflows/notify-workflow-problems.yml).
+2. Click **Run workflow**, select `main`, then click **Run workflow** again.
+3. Open the new run. The `notify` job should pass, and an email with a subject
+   beginning with `[TEST]` should arrive in the Gmail inbox.
+4. If the job fails with `SMTPAuthenticationError` (usually code `535`), check
+   `GMAIL_ADDRESS` and replace `GMAIL_APP_PASSWORD` with a valid Google app password.
+
+This explicitly requested manual test uses the same secrets, Gmail login and
+sending code as the automatic alerts. It does not run PMTiles generation.
+Automatic successful generation runs still do not send email.
+
 ## Verification and troubleshooting
 
 After the next failed or cancelled `Generate PMTiles` attempt, open
@@ -46,8 +59,8 @@ After the next failed or cancelled `Generate PMTiles` attempt, open
 `Email PMTiles problems`. Its mail job should succeed and the email should arrive
 at `GMAIL_ADDRESS`. A successful generation should leave the mail job skipped.
 
-Delivery cannot be checked until the secrets are configured and an eligible run
-completes. If delivery fails, inspect the notification job's log and Gmail's spam
+Configure the secrets before running the manual delivery test or expecting automatic
+alerts. If delivery fails, inspect the notification job's log and Gmail's spam
 folder. Missing secrets fail with an explicit setup message; authentication or
 SMTP errors fail the notification job. The original run's result is unchanged.
 
