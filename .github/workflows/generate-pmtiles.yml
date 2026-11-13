@@ -75,7 +75,7 @@ jobs:
           name: openaip-exports
           path: tmp
 
-      - name: Prepare layer GeoJSON
+      - name: Prepare line-delimited GeoJSON
         run: python -u main.py prepare-layer "$LAYER"
 
       - name: Upload prepared GeoJSON
@@ -101,10 +101,22 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install requests shapely pyproj
 
-      - name: Install tippecanoe
+      - name: Install Tippecanoe
+        env:
+          TIPPECANOE_VERSION: "2.79.0"
         run: |
+          set -o pipefail
           sudo apt-get update
-          sudo apt-get install -y tippecanoe
+          sudo apt-get install -y g++ make libsqlite3-dev zlib1g-dev
+
+          src="$(mktemp -d)"
+          curl -fsSL --retry 3 \
+            "https://github.com/felt/tippecanoe/archive/refs/tags/${TIPPECANOE_VERSION}.tar.gz" \
+            | tar -xz --strip-components=1 -C "$src"
+
+          make -C "$src" -j"$(nproc)" tippecanoe tippecanoe-decode
+          "$src/tippecanoe" --version
+          echo "$src" >> "$GITHUB_PATH"
 
       - name: Download prepared GeoJSON
         uses: actions/download-artifact@v7

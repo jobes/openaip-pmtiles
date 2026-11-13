@@ -51,9 +51,9 @@ def load_env_file(path: pathlib.Path = pathlib.Path(__file__).with_name(".env"))
 
 load_env_file()
 
-INITIAL_GEOJSON_TEMPLATE = '{"type": "FeatureCollection","features": ['
 TIPPECANOE_EXECUTABLE = "tippecanoe"
 TIPPECANOE_ARGS = [
+    "--read-parallel",
     "--no-feature-limit",
     "--no-tile-size-limit",
     "--no-line-simplification",
@@ -77,7 +77,6 @@ class OpenAipDatasetConfig:
     file_code: str
     properties_mapper: Optional[PropertiesMapper] = None
     geometry_mapper: Optional[GeometryMapper] = None
-    first: bool = True
 
 OPEN_AIP_DATASETS: List[OpenAipDatasetConfig] = [
     OpenAipDatasetConfig("obstacles", "obs", get_obstacle_properties),
@@ -145,26 +144,20 @@ def write_dataset_geojson(
                 feature["geometry"] = geometry
             if dataset.properties_mapper:
                 feature["properties"] = dataset.properties_mapper(feature["properties"])
-            if dataset.first:
-                dataset.first = False
-            else:
-                f.write(",")
             feature["id"] = feature_id
             feature_id += 1
-            f.write(json.dumps(feature))
+            f.write(json.dumps(feature) + "\n")
 
 
 def prepare_layer(dataset: OpenAipDatasetConfig) -> None:
-    dataset.first = True
     path = geojson_path(dataset)
-    path.write_text(INITIAL_GEOJSON_TEMPLATE, encoding="utf-8")
+    # Tippecanoe reads newline-delimited Features in parallel.
+    path.write_text("", encoding="utf-8")
     for country in countries:
         source = source_path(country, dataset.file_code)
         if source.is_file():
             geojson = json.loads(source.read_text(encoding="utf-8"))
             write_dataset_geojson(dataset, geojson.get("features") or [])
-    with path.open("a", encoding="utf-8") as f:
-        f.write("]}")
 
 
 def build_tiles() -> None:
