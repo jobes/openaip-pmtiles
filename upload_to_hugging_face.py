@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
+
 from huggingface_hub import CommitOperationAdd, HfApi, upload_file
 
-GEOJSONS_DIR = Path("tmp/geojsons")
+from generate_airport_index import AIRPORT_INDEX_PATH, GEOJSONS_DIR
+
+NOTAM_AREAS_PATH = Path("notam-areas.json")
 
 
 def format_size(num_bytes: int) -> str:
@@ -18,8 +21,8 @@ def format_size(num_bytes: int) -> str:
 def upload_geojsons(token: str | None, repo_id: str) -> None:
     """Upload all raw apt/asp geojson files into the `geojsons/` folder.
 
-    All files are uploaded in a single commit. Uploading each file with its
-    own `upload_file()` call creates one commit per file, which quickly
+    Include generated catalogs in the same commit when available.
+    Uploading each file with its own `upload_file()` call quickly
     exhausts the Hugging Face rate limit (HTTP 429 Too Many Requests) when
     there are hundreds of per-country files.
     """
@@ -38,6 +41,14 @@ def upload_geojsons(token: str | None, repo_id: str) -> None:
         )
         for path in files
     ]
+    operations.extend(
+        CommitOperationAdd(
+            path_in_repo=path.name,
+            path_or_fileobj=str(path),
+        )
+        for path in (AIRPORT_INDEX_PATH, NOTAM_AREAS_PATH)
+        if path.is_file()
+    )
 
     total_size = sum(path.stat().st_size for path in files)
     print(

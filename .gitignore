@@ -1,5 +1,6 @@
 tmp/
 output_tiles/
+allairports.json
 __pycache__/
 
 # Local secrets / environment

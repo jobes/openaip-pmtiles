@@ -93,7 +93,7 @@
       </section>
 
       <!-- Download Section -->
-      <section class="card p-8 text-center border-t-4 border-blue-500">
+      <section class="card p-8 mb-8 text-center border-t-4 border-blue-500">
         <h2 class="text-2xl font-semibold text-slate-800 mb-2">
           Ready to use?
         </h2>
@@ -128,6 +128,57 @@
         <p class="mt-4 text-sm text-slate-400">
           Format: PMTiles (Vector) | License: CC BY-NC-SA
         </p>
+      </section>
+
+      <section id="airport-index" class="card p-8 mb-8" aria-labelledby="airport-index-title">
+        <div class="flex items-center gap-3 mb-4">
+          <i class="fa-solid fa-globe text-blue-500 text-xl" aria-hidden="true"></i>
+          <h2 id="airport-index-title" class="text-2xl font-semibold text-slate-800">
+            Worldwide Airport Index
+          </h2>
+        </div>
+        <p class="text-slate-600 leading-relaxed mb-2">
+          Get every airport from the available OpenAIP country exports in one
+          JSON array. Use it for airport search, map markers, or data imports.
+        </p>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          Each entry has a <code>name</code> and <code>coordinates</code> in
+          [longitude, latitude] order. The <code>icao</code> field is included
+          when available.
+        </p>
+        <a
+          href="https://huggingface.co/datasets/jobes666/openaip-mptiles/resolve/main/allairports.json?download=true"
+          class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-full transition-all transform hover:scale-105 shadow"
+        >
+          <i class="fa-solid fa-download" aria-hidden="true"></i>
+          Download allairports.json
+        </a>
+      </section>
+
+      <section id="notam-areas" class="card p-8 mb-8" aria-labelledby="notam-areas-title">
+        <div class="flex items-center gap-3 mb-4">
+          <i class="fa-solid fa-map text-blue-500 text-xl" aria-hidden="true"></i>
+          <h2 id="notam-areas-title" class="text-2xl font-semibold text-slate-800">
+            NOTAM Area Codes
+          </h2>
+        </div>
+        <p class="text-slate-600 leading-relaxed mb-2">
+          Look up the ICAO code to enter when searching for area NOTAMs.
+          Use the included GeoJSON boundaries to find flight information
+          regions (FIRs) and U.S. air route traffic control centers (ARTCCs)
+          along a route. Each entry includes its boundary sources.
+        </p>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          The catalog includes areas with matching boundaries in OpenAIP or FAA
+          data. Geographic coverage is partial.
+        </p>
+        <a
+          href="https://huggingface.co/datasets/jobes666/openaip-mptiles/resolve/main/notam-areas.json?download=true"
+          class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-full transition-all transform hover:scale-105 shadow"
+        >
+          <i class="fa-solid fa-download" aria-hidden="true"></i>
+          Download notam-areas.json
+        </a>
       </section>
 
       <!-- Raw GeoJSON Section -->

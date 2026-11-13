@@ -1,0 +1,28 @@
+icao,name,alias,source
+KZAB,Albuquerque,ZAB,
+KZAK,Oakland Oceanic,ZAK,https://www.faa.gov/air_traffic/publications/atpubs/notam_html/chap8_section_1.html
+KZAU,Chicago,ZAU,
+KZBW,Boston,ZBW,
+KZDC,Washington,ZDC,
+KZDV,Denver,ZDV,
+KZFW,Fort Worth,ZFW,
+KZHU,Houston,ZHU,
+KZID,Indianapolis,ZID,
+KZJX,Jacksonville,ZJX,
+KZKC,Kansas City,ZKC,
+KZLA,Los Angeles,ZLA,
+KZLC,Salt Lake,ZLC,
+KZMA,Miami,ZMA,
+KZME,Memphis,ZME,
+KZMP,Minneapolis,ZMP,
+KZNY,New York,ZNY,
+KZOA,Oakland,ZOA,
+KZOB,Cleveland,ZOB,
+KZSE,Seattle,ZSE,
+KZTL,Atlanta,ZTL,
+KZWY,New York Oceanic,ZWY,https://www.faa.gov/air_traffic/publications/atpubs/notam_html/chap8_section_1.html
+PAZA,Anchorage,ZAN,
+PAZN,Anchorage Oceanic,ZAP,https://www.faa.gov/air_traffic/publications/atpubs/notam_html/chap8_section_1.html
+PGZU,Guam,ZUA,https://aeronav.faa.gov/afd/22JAN2026/PAC_37_22JAN2026.pdf
+PHZH,Honolulu,ZHN,
+TJZS,San Juan,ZLU,

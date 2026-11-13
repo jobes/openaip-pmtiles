@@ -1,8 +1,10 @@
+import argparse
 import json
 import os
 import pathlib
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -12,10 +14,12 @@ from countries import countries
 from mapper import DatasetProperties, Geometry, get_airports_properties, get_airspace_border_properties, get_airspace_borders2x_geometry, get_airspace_borders_geometry, get_airspace_properties, get_hang_glidings_properties, get_hotspots_properties, get_navaids_properties, get_obstacle_properties, get_reporting_points_properties
 
 DOWNLOAD_DIR = pathlib.Path("tmp")
+SOURCE_DIR = DOWNLOAD_DIR / "downloads"
 GEOJSONS_DIR = DOWNLOAD_DIR / "geojsons"
 OUTPUT_TILES_DIR = pathlib.Path(".")
 COMBINED_PM_TILES = OUTPUT_TILES_DIR / "openaip.pmtiles"
 BASE_URL = "https://s3.openaip.net/openaip-system-exports"
+DOWNLOAD_WORKERS = 8
 
 
 def load_env_file(path: pathlib.Path = pathlib.Path(__file__).with_name(".env")) -> None:
@@ -73,7 +77,7 @@ class OpenAipDatasetConfig:
     file_code: str
     properties_mapper: Optional[PropertiesMapper] = None
     geometry_mapper: Optional[GeometryMapper] = None
-    first = True
+    first: bool = True
 
 OPEN_AIP_DATASETS: List[OpenAipDatasetConfig] = [
     OpenAipDatasetConfig("obstacles", "obs", get_obstacle_properties),
@@ -88,50 +92,43 @@ OPEN_AIP_DATASETS: List[OpenAipDatasetConfig] = [
 ]
 
 
-def ensure_download_dir() -> pathlib.Path:
-    DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    return DOWNLOAD_DIR
+def source_path(country: str, file_code: str) -> pathlib.Path:
+    # Keep the raw airport and airspace exports where the publisher expects them.
+    directory = GEOJSONS_DIR if file_code in ("apt", "asp") else SOURCE_DIR
+    return directory / f"{country}_{file_code}.geojson"
 
 
-def ensure_country_dir(country: str) -> pathlib.Path:
-    """Ensure per-country directory exists under tmp/."""
-    country_dir = ensure_download_dir() / country
-    country_dir.mkdir(parents=True, exist_ok=True)
-    return country_dir
+def download_file(country: str, file_code: str) -> None:
+    url = f"{BASE_URL}/{country}_{file_code}.geojson"
+    response = requests.get(url, timeout=60)
+    if response.status_code == 404:
+        return
+    response.raise_for_status()
+    source_path(country, file_code).write_text(response.text, encoding="utf-8")
 
 
-def clear_geojsons_dir() -> None:
-    """Remove previously saved raw geojson files so each run uploads only the
-    current set of countries."""
-    if GEOJSONS_DIR.exists():
-        shutil.rmtree(GEOJSONS_DIR)
+def download_country(country: str) -> str:
+    for file_code in dict.fromkeys(dataset.file_code for dataset in OPEN_AIP_DATASETS):
+        download_file(country, file_code)
+    return country
 
 
-def save_raw_geojson(country: str, file_code: str, payload: str) -> None:
-    """Save the raw downloaded GeoJSON for apt/asp layers under tmp/geojsons/.
+def download() -> None:
+    for directory in (SOURCE_DIR, GEOJSONS_DIR):
+        if directory.exists():
+            shutil.rmtree(directory)
+        directory.mkdir(parents=True)
 
-    These files are later uploaded to the `geojsons` folder on Hugging Face.
-    """
-    GEOJSONS_DIR.mkdir(parents=True, exist_ok=True)
-    (GEOJSONS_DIR / f"{country}_{file_code}.geojson").write_text(payload, encoding="utf-8")
+    with ThreadPoolExecutor(max_workers=DOWNLOAD_WORKERS) as pool:
+        for index, country in enumerate(pool.map(download_country, countries), start=1):
+            print(f"Downloaded {country} ({index}/{len(countries)})")
+
 
 def geojson_path(dataset: OpenAipDatasetConfig) -> pathlib.Path:
     return DOWNLOAD_DIR / f"{dataset.layer_name}.geojson"
 
 
-def init_geojson_files(datasets: List[OpenAipDatasetConfig]) -> None:
-    for dataset in datasets:
-        with geojson_path(dataset).open("w", encoding="utf-8") as f:
-            f.write(INITIAL_GEOJSON_TEMPLATE)
-
-
-def finalize_geojson_files(datasets: List[OpenAipDatasetConfig]) -> None:
-    for dataset in datasets:
-        with geojson_path(dataset).open("a", encoding="utf-8") as f:
-            f.write("]}")
-
 def write_dataset_geojson(
-    country: str,
     dataset: OpenAipDatasetConfig,
     features: List[Feature],
 ) -> None:
@@ -157,7 +154,22 @@ def write_dataset_geojson(
             f.write(json.dumps(feature))
 
 
-def process_tiles(datasets: List[OpenAipDatasetConfig]) -> None:
+def prepare_layer(dataset: OpenAipDatasetConfig) -> None:
+    dataset.first = True
+    path = geojson_path(dataset)
+    path.write_text(INITIAL_GEOJSON_TEMPLATE, encoding="utf-8")
+    for country in countries:
+        source = source_path(country, dataset.file_code)
+        if source.is_file():
+            geojson = json.loads(source.read_text(encoding="utf-8"))
+            write_dataset_geojson(dataset, geojson.get("features") or [])
+    with path.open("a", encoding="utf-8") as f:
+        f.write("]}")
+
+
+def process_tiles(
+    datasets: List[OpenAipDatasetConfig], output: pathlib.Path
+) -> None:
     if shutil.which(TIPPECANOE_EXECUTABLE) is None:
         raise RuntimeError(
             "tippecanoe executable not found on PATH. Install tippecanoe to generate pmtiles."
@@ -166,7 +178,7 @@ def process_tiles(datasets: List[OpenAipDatasetConfig]) -> None:
     cmd = [
         TIPPECANOE_EXECUTABLE,
         "-o",
-        str(COMBINED_PM_TILES),
+        str(output),
         *TIPPECANOE_ARGS,
         *geojson_paths,
     ]
@@ -175,42 +187,39 @@ def process_tiles(datasets: List[OpenAipDatasetConfig]) -> None:
     except subprocess.CalledProcessError as exc:
         raise RuntimeError("tippecanoe failed") from exc
 
-def file_datasets(file_code: str) -> List[OpenAipDatasetConfig]:
-    return [dataset for dataset in OPEN_AIP_DATASETS if dataset.file_code == file_code]
 
-
-def download_file(country: str, file_code: str) -> None:
-    url = f"{BASE_URL}/{country}_{file_code}.geojson"
-    response = requests.get(url, timeout=60)
-    if response.status_code == 404:
+def build_layer(dataset: OpenAipDatasetConfig) -> None:
+    output = DOWNLOAD_DIR / f"{dataset.layer_name}.mbtiles"
+    if geojson_path(dataset).stat().st_size == len(INITIAL_GEOJSON_TEMPLATE) + len("]}"):
+        output.unlink(missing_ok=True)
+        print(f"No features in {dataset.layer_name}, skipping tile generation")
         return
-    if not response.ok:
-        raise RuntimeError(
-            f"Download failed with HTTP {response.status_code}: {response.text}"
-        )
-    payload_text = response.text
-    if file_code in ("apt", "asp"):
-        save_raw_geojson(country, file_code, payload_text)
-    for dataset in file_datasets(file_code):
-        geojson = json.loads(payload_text)
-        features: List[Feature] = geojson.get("features") or []
-        write_dataset_geojson(country, dataset, features)
+    process_tiles([dataset], output)
 
-
-def download_country(country: str) -> None:
-    file_codes = {dataset.file_code for dataset in OPEN_AIP_DATASETS}
-    for file_code in file_codes:
-        download_file(country, file_code)
 
 def main() -> None:
-    ensure_download_dir()
-    clear_geojsons_dir()
-    init_geojson_files(OPEN_AIP_DATASETS)
-    for index, country in enumerate(countries, start=1):
-        download_country(country)
-        print(f"geojson generated for {country} ({index}/{len(countries)})")
-    finalize_geojson_files(OPEN_AIP_DATASETS)
-    process_tiles(OPEN_AIP_DATASETS)
+    layers = {dataset.layer_name: dataset for dataset in OPEN_AIP_DATASETS}
+    parser = argparse.ArgumentParser()
+    commands = parser.add_subparsers(dest="command")
+    commands.add_parser("download")
+    commands.add_parser("list-layers")
+    commands.add_parser("prepare-layer").add_argument("layer", choices=layers)
+    commands.add_parser("build-layer").add_argument("layer", choices=layers)
+    args = parser.parse_args()
+
+    if args.command == "list-layers":
+        print(json.dumps(list(layers)))
+    elif args.command == "download":
+        download()
+    elif args.command == "prepare-layer":
+        prepare_layer(layers[args.layer])
+    elif args.command == "build-layer":
+        build_layer(layers[args.layer])
+    else:
+        download()
+        for dataset in OPEN_AIP_DATASETS:
+            prepare_layer(dataset)
+        process_tiles(OPEN_AIP_DATASETS, COMBINED_PM_TILES)
 
 if __name__ == "__main__":
     main()

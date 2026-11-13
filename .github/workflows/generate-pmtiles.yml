@@ -17,8 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-tiles:
+  download:
     runs-on: ubuntu-latest
+    outputs:
+      layers: ${{ steps.layers.outputs.names }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,34 +30,104 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install Python dependencies
+        run: python -m pip install requests shapely pyproj
+
+      - name: List layers
+        id: layers
+        run: echo "names=$(python main.py list-layers)" >> "$GITHUB_OUTPUT"
+
+      - name: Download OpenAIP exports
+        run: python -u main.py download
+
+      - name: Upload source exports
+        uses: actions/upload-artifact@v4
+        with:
+          name: openaip-exports
+          path: tmp/
+          if-no-files-found: error
+          overwrite: true
+
+  build-layer:
+    needs: download
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: ${{ fromJSON(needs.download.outputs.layers) }}
+    env:
+      LAYER: ${{ matrix.layer }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: python -m pip install requests shapely pyproj
+
       - name: Install tippecanoe
         run: |
           sudo apt-get update
           sudo apt-get install -y tippecanoe
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests shapely pyproj huggingface_hub
+      - name: Download source exports
+        uses: actions/download-artifact@v4
+        with:
+          name: openaip-exports
+          path: tmp
 
-      - name: Generate PMTiles
-        env:
-          PYTHONUNBUFFERED: "1"
-        run: python main.py
+      - name: Prepare layer GeoJSON
+        run: python -u main.py prepare-layer "$LAYER"
+
+      - name: Generate layer tiles
+        run: python -u main.py build-layer "$LAYER"
+
+      - name: Upload layer tiles
+        if: hashFiles(format('tmp/{0}.mbtiles', matrix.layer)) != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiles-${{ matrix.layer }}
+          path: tmp/${{ matrix.layer }}.mbtiles
+          compression-level: 0
+          if-no-files-found: error
+          overwrite: true
+
+  build-tiles:
+    needs: build-layer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tippecanoe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tippecanoe
+
+      - name: Download layer tiles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tiles-*
+          merge-multiple: true
+          path: tmp/layers
+
+      - name: Merge and check PMTiles
+        run: |
+          tile-join --no-tile-size-limit --quiet --name openaip -o openaip.pmtiles tmp/layers/*.mbtiles
+          tippecanoe-decode openaip.pmtiles 0 0 0 > /dev/null
 
       - name: Upload PMTiles artifact
-        if: hashFiles('openaip.pmtiles') != ''
         uses: actions/upload-artifact@v4
         with:
           name: pmtiles-outputs
-          # Include the raw per-country apt/asp GeoJSON files so the
-          # upload-to-hugging-face job can push them to the `geojsons/`
-          # folder on Hugging Face. Uploading the directory (without a
-          # trailing slash) preserves the tmp/geojsons/ path, so downloading
-          # to "." restores tmp/geojsons/*.geojson in the upload job.
-          path: |
-            openaip.pmtiles
-            tmp/geojsons
+          path: openaip.pmtiles
+          compression-level: 0
+          if-no-files-found: error
+          overwrite: true
 
       - name: Update Generated Date in Webpage
         run: python update_web.py
@@ -78,9 +150,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests shapely pyproj huggingface_hub
+        run: python -m pip install huggingface_hub
 
       - name: Download PMTiles artifact
         uses: actions/download-artifact@v4
@@ -88,11 +158,21 @@ jobs:
           name: pmtiles-outputs
           path: .
 
+      - name: Download source exports
+        uses: actions/download-artifact@v4
+        with:
+          name: openaip-exports
+          path: tmp
+
+      - name: Generate allairports.json
+        run: python generate_airport_index.py
+
       - name: Upload to Hugging Face
-        if: hashFiles('openaip.pmtiles') != ''
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: python upload_to_hugging_face.py
+        run: |
+          test -s notam-areas.json
+          python upload_to_hugging_face.py
 
   deploy-pages:
     needs: upload-to-hugging-face
