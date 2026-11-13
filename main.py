@@ -59,7 +59,7 @@ TIPPECANOE_ARGS = [
     "--no-line-simplification",
     "--detect-shared-borders",
     "--minimum-zoom=0",
-    "--maximum-zoom=14",
+    "--maximum-zoom=13",
     "--force",
     "--drop-rate=0",
     "--base-zoom=0",
