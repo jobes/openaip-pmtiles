@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
-  build-layer:
+  prepare-layer:
     needs: download
     runs-on: ubuntu-latest
     strategy:
@@ -69,11 +69,6 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install requests shapely pyproj
 
-      - name: Install tippecanoe
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tippecanoe
-
       - name: Download source exports
         uses: actions/download-artifact@v4
         with:
@@ -83,41 +78,44 @@ jobs:
       - name: Prepare layer GeoJSON
         run: python -u main.py prepare-layer "$LAYER"
 
-      - name: Generate layer tiles
-        run: python -u main.py build-layer "$LAYER"
-
-      - name: Upload layer tiles
-        if: hashFiles(format('tmp/{0}.mbtiles', matrix.layer)) != ''
+      - name: Upload prepared GeoJSON
         uses: actions/upload-artifact@v4
         with:
-          name: tiles-${{ matrix.layer }}
-          path: tmp/${{ matrix.layer }}.mbtiles
-          compression-level: 0
+          name: prepared-${{ matrix.layer }}
+          path: tmp/${{ matrix.layer }}.geojson
           if-no-files-found: error
           overwrite: true
 
   build-tiles:
-    needs: build-layer
+    needs: prepare-layer
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: python -m pip install requests shapely pyproj
 
       - name: Install tippecanoe
         run: |
           sudo apt-get update
           sudo apt-get install -y tippecanoe
 
-      - name: Download layer tiles
+      - name: Download prepared GeoJSON
         uses: actions/download-artifact@v4
         with:
-          pattern: tiles-*
+          pattern: prepared-*
           merge-multiple: true
-          path: tmp/layers
+          path: tmp
 
-      - name: Merge and check PMTiles
+      - name: Build and check PMTiles
         run: |
-          tile-join --no-tile-size-limit --quiet --name openaip -o openaip.pmtiles tmp/layers/*.mbtiles
+          python -u main.py build-tiles
           tippecanoe-decode openaip.pmtiles 0 0 0 > /dev/null
 
       - name: Upload PMTiles artifact

@@ -167,18 +167,17 @@ def prepare_layer(dataset: OpenAipDatasetConfig) -> None:
         f.write("]}")
 
 
-def process_tiles(
-    datasets: List[OpenAipDatasetConfig], output: pathlib.Path
-) -> None:
+def build_tiles() -> None:
     if shutil.which(TIPPECANOE_EXECUTABLE) is None:
         raise RuntimeError(
             "tippecanoe executable not found on PATH. Install tippecanoe to generate pmtiles."
         )
-    geojson_paths = [str(geojson_path(dataset)) for dataset in datasets]
+    # Build all layers together so Tippecanoe can optimize the complete tileset.
+    geojson_paths = [str(geojson_path(dataset)) for dataset in OPEN_AIP_DATASETS]
     cmd = [
         TIPPECANOE_EXECUTABLE,
         "-o",
-        str(output),
+        str(COMBINED_PM_TILES),
         *TIPPECANOE_ARGS,
         *geojson_paths,
     ]
@@ -188,15 +187,6 @@ def process_tiles(
         raise RuntimeError("tippecanoe failed") from exc
 
 
-def build_layer(dataset: OpenAipDatasetConfig) -> None:
-    output = DOWNLOAD_DIR / f"{dataset.layer_name}.mbtiles"
-    if geojson_path(dataset).stat().st_size == len(INITIAL_GEOJSON_TEMPLATE) + len("]}"):
-        output.unlink(missing_ok=True)
-        print(f"No features in {dataset.layer_name}, skipping tile generation")
-        return
-    process_tiles([dataset], output)
-
-
 def main() -> None:
     layers = {dataset.layer_name: dataset for dataset in OPEN_AIP_DATASETS}
     parser = argparse.ArgumentParser()
@@ -204,7 +194,7 @@ def main() -> None:
     commands.add_parser("download")
     commands.add_parser("list-layers")
     commands.add_parser("prepare-layer").add_argument("layer", choices=layers)
-    commands.add_parser("build-layer").add_argument("layer", choices=layers)
+    commands.add_parser("build-tiles")
     args = parser.parse_args()
 
     if args.command == "list-layers":
@@ -213,13 +203,13 @@ def main() -> None:
         download()
     elif args.command == "prepare-layer":
         prepare_layer(layers[args.layer])
-    elif args.command == "build-layer":
-        build_layer(layers[args.layer])
+    elif args.command == "build-tiles":
+        build_tiles()
     else:
         download()
         for dataset in OPEN_AIP_DATASETS:
             prepare_layer(dataset)
-        process_tiles(OPEN_AIP_DATASETS, COMBINED_PM_TILES)
+        build_tiles()
 
 if __name__ == "__main__":
     main()
