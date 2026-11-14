@@ -68,20 +68,21 @@ The script downloads every dataset for every country listed in `countries.py`. D
 
 ## Output
 
-- `notam-areas.json` provides location codes for area NOTAM searches. Each
-  record includes `icao`, `name`, `types` (FIR and/or ARTCC), and `sources`.
-  U.S. centers can also have a three-letter `faa_identifier`.
-  Every listed type has a GeoJSON polygon in `boundaries`, with its coverage
-  and source links. ARTCC geometry represents the low-altitude chart boundary.
+- `airports.geojson` is a GeoJSON FeatureCollection of airports from the
+  available OpenAIP country exports. Each feature has a Point geometry with
+  longitude and latitude and contains `name` and, when available, `icao`
+  in its `properties`.
+- `notam-areas.json` is a GeoJSON FeatureCollection for area NOTAM searches.
+  Each feature has `icao`, `name`, and `types` (FIR and/or ARTCC) in its
+  `properties`. Its Polygon or MultiPolygon geometry covers the union of
+  the boundaries for that ICAO code.
 - The [FIR source snapshot](https://www.arcgis.com/home/item.html?id=4b70cff99cf14565b6671a314c8ea6e8)
   dates to December 2020. The CSV includes individually sourced updates.
   The [FAA center identifiers](https://www.faa.gov/air_traffic/publications/atpubs/fs_html/chap6_section_2.html)
-  and [FAA chart boundaries](https://www.arcgis.com/home/item.html?id=67885972e4e940b2aa6d74024901c561)
-  supply U.S. data. Additional FIR boundaries come from the downloaded OpenAIP
-  exports. Geographic coverage depends on the polygons matched to catalog codes.
-  GitHub Actions publishes the checked-in catalog. To refresh it manually,
-  run `python generate_notam_areas.py --faa-boundaries path/to/faa-boundaries.geojson`
-  with FAA chart boundaries in EPSG:4326 and OpenAIP exports in `tmp/geojsons/`.
+  supply the U.S. code reference. GitHub Actions generates the catalog from the
+  OpenAIP airspace exports it already downloads and publishes it to Hugging Face.
+  Coverage depends on which OpenAIP boundaries can be matched to catalog codes.
+  Run `python generate_notam_areas.py` locally with exports in `tmp/geojsons/`.
 - Combined global tileset: `output_tiles/openaip.pmtiles`
 - Daily generated global pmtiles available on https://jobes.github.io/openaip-pmtiles/
 

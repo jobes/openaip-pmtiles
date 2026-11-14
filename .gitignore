@@ -1,6 +1,7 @@
 tmp/
 output_tiles/
-allairports.json
+/airports.geojson
+notam-areas.json
 __pycache__/
 
 # Local secrets / environment

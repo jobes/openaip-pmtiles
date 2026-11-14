@@ -450,7 +450,7 @@ PAGE_TEMPLATE = """<!doctype html>
         </p>
         <div class="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 text-blue-300">
           <a href="index.html#airport-index" class="underline hover:text-white">
-            Get all airports in one JSON file
+            Get all airports in one GeoJSON file
           </a>
           <a href="index.html#notam-areas" class="underline hover:text-white">
             Find NOTAM area codes

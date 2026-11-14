@@ -14,10 +14,6 @@ from generate_airport_index import GEOJSONS_DIR
 
 NOTAM_AREAS_PATH = Path("notam-areas.json")
 DATA_DIR = Path(__file__).with_name("data")
-FIR_SOURCE = "https://www.arcgis.com/home/item.html?id=4b70cff99cf14565b6671a314c8ea6e8"
-ARTCC_SOURCE = "https://www.faa.gov/air_traffic/publications/atpubs/fs_html/chap6_section_2.html"
-FAA_BOUNDARY_SOURCE = "https://www.arcgis.com/home/item.html?id=67885972e4e940b2aa6d74024901c561"
-OPENAIP_EXPORTS = "https://s3.openaip.net/openaip-system-exports"
 # Export names that differ from the names in the FIR code catalog.
 OPENAIP_FIR_NAMES = {
     ("ar", "COMODORO"): "SAVF",
@@ -30,9 +26,9 @@ OPENAIP_FIR_NAMES = {
 
 def load_catalog() -> dict:
     areas = {}
-    for area_type, filename, default_source in (
-        ("FIR", "notam-firs.csv", FIR_SOURCE),
-        ("ARTCC", "notam-artccs.csv", ARTCC_SOURCE),
+    for area_type, filename in (
+        ("FIR", "notam-firs.csv"),
+        ("ARTCC", "notam-artccs.csv"),
     ):
         seen = set()
         with (DATA_DIR / filename).open(encoding="utf-8", newline="") as file:
@@ -41,13 +37,8 @@ def load_catalog() -> dict:
                 if not re.fullmatch(r"[A-Z]{4}", code) or not name or code in seen:
                     raise ValueError(f"Invalid or duplicate entry {code!r} in {filename}")
                 seen.add(code)
-                area = areas.setdefault(code, {"icao": code, "name": name, "types": [], "sources": {}})
+                area = areas.setdefault(code, {"icao": code, "name": name, "types": [], "geometry": {}})
                 area["types"].append(area_type)
-                area["sources"][area_type] = row["source"] or default_source
-                if alias := row.get("alias"):
-                    if not re.fullmatch(r"[A-Z]{3}", alias):
-                        raise ValueError(f"Invalid FAA alias {alias!r} for {code}")
-                    area["faa_identifier"] = alias
         if not seen:
             raise ValueError(f"No entries in {filename}")
     return areas
@@ -61,7 +52,7 @@ def polygon_parts(geometry):
             yield from polygon_parts(part)
 
 
-def add_boundary(area, area_type, coverage, polygons, sources):
+def merge_polygons(polygons, label):
     merged = union_all(polygons)
     oriented = [orient(polygon) for polygon in polygon_parts(merged)]
     if not oriented:
@@ -69,42 +60,8 @@ def add_boundary(area, area_type, coverage, polygons, sources):
     geometry = oriented[0] if len(oriented) == 1 else MultiPolygon(oriented)
     west, south, east, north = geometry.bounds
     if not geometry.is_valid or not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90):
-        raise ValueError(f"Invalid boundary for {area['icao']} ({area_type})")
-    area.setdefault("boundaries", {})[area_type] = {
-        "geometry": mapping(geometry),
-        "coverage": coverage,
-        "sources": sources,
-    }
-
-
-def add_faa_boundaries(areas: dict, path: Path) -> None:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("type") != "FeatureCollection" or data.get("exceededTransferLimit") or not data.get("features"):
-        raise ValueError(f"Expected a complete FAA GeoJSON FeatureCollection in {path}")
-
-    artcc_codes = {
-        area["faa_identifier"]: code for code, area in areas.items() if "faa_identifier" in area
-    }
-    parts = defaultdict(list)
-    for feature in data["features"]:
-        properties = feature["properties"]
-        area_type, ident = properties["TYPE_CODE"], properties["IDENT"]
-        if area_type == "ARTCC" and properties["LEVEL_"] == "L":
-            code = artcc_codes.get(ident)
-            coverage = "LOW"
-        elif area_type == "FIR" and properties["LEVEL_"] == "B":
-            code = properties["ICAO_ID"] or ident
-            coverage = "PUBLISHED_FIR"
-        else:
-            continue
-        if code in areas and area_type in areas[code]["types"] and feature["geometry"]:
-            geometry = force_2d(shape(feature["geometry"]))
-            parts[code, area_type, coverage].extend(polygon_parts(make_valid(geometry)))
-
-    for (code, area_type, coverage), polygons in parts.items():
-        add_boundary(areas[code], area_type, coverage, polygons, [FAA_BOUNDARY_SOURCE])
-    if not any("boundaries" in area for area in areas.values()):
-        raise ValueError(f"No FAA boundaries matched the catalog in {path}")
+        raise ValueError(f"Invalid boundary for {label}")
+    return mapping(geometry)
 
 
 def fir_name_key(name: str) -> str:
@@ -119,8 +76,10 @@ def add_openaip_boundaries(areas: dict, directory: Path) -> None:
             names[fir_name_key(name)].add(code)
 
     parts = defaultdict(list)
-    sources = defaultdict(set)
-    for path in sorted(directory.glob("*_asp.geojson")):
+    exports = sorted(directory.glob("*_asp.geojson"))
+    if not exports:
+        raise ValueError(f"No OpenAIP airspace exports found in {directory}")
+    for path in exports:
         data = json.loads(path.read_text(encoding="utf-8"))
         country = path.name.removesuffix("_asp.geojson")
         for feature in data["features"]:
@@ -129,9 +88,15 @@ def add_openaip_boundaries(areas: dict, directory: Path) -> None:
                 continue
             # Exclude sector polygons that start above the surface.
             lower = properties.get("lowerLimit") or {}
-            if lower.get("value") != 0 or lower.get("referenceDatum") != EReferenceDatum.GND:
+            if lower.get("value") != 0 or lower.get("referenceDatum") not in (
+                EReferenceDatum.GND, EReferenceDatum.MSL
+            ):
                 continue
             name = (properties.get("name") or "").upper()
+            remarks = properties.get("remarks") or ""
+            explicit_codes = set(re.findall(r"^ICAO:[ \t]*([A-Z]{4})[ \t]*\r?$", remarks.upper(), re.MULTILINE))
+            area_type = "FIR"
+            coverage = "OPENAIP_FIR"
             name_key = fir_name_key(name)
             alias = OPENAIP_FIR_NAMES.get((country, name_key))
             by_name = {alias} if alias else names[name_key]
@@ -139,30 +104,57 @@ def add_openaip_boundaries(areas: dict, directory: Path) -> None:
             candidates = by_name or by_code
             if by_name and by_code:
                 candidates = by_name & by_code
+
+            # OpenAIP stores US center polygons under the FIR type too.
+            if country in ("us", "pr", "gu") and re.search(
+                r"^Facility type:[ \t]*(ARTCC|CERAP)[ \t]*\r?$", remarks, re.MULTILINE | re.IGNORECASE
+            ):
+                area_type = "ARTCC"
+                coverage = "LOW" if re.search(r"\bLOW\b", name) else "OPENAIP_ARTCC"
+                candidates = {code for code in explicit_codes if "ARTCC" in areas.get(code, {}).get("types", [])}
+            elif explicit_codes:
+                candidates = explicit_codes & fir_codes
+
             if len(candidates) != 1:
                 continue
             code = next(iter(candidates))
-            if "FIR" in areas[code].get("boundaries", {}):
-                continue
             geometry = force_2d(shape(feature["geometry"]))
             polygons = list(polygon_parts(make_valid(geometry)))
             if polygons:
-                parts[code].extend(polygons)
-                sources[code].add(f"{OPENAIP_EXPORTS}/{path.name}")
+                key = (code, area_type, coverage)
+                parts[key].extend(polygons)
+                if area_type == "ARTCC" and code in fir_codes and re.search(r"\bFIR\b", name):
+                    key = (code, "FIR", "OPENAIP_FIR")
+                    parts[key].extend(polygons)
 
-    for code, polygons in parts.items():
-        add_boundary(areas[code], "FIR", "OPENAIP_FIR", polygons, sorted(sources[code]))
+    for (code, area_type, coverage), polygons in sorted(parts.items()):
+        if coverage == "LOW" and (code, area_type, "OPENAIP_ARTCC") in parts:
+            continue
+        geometry = merge_polygons(polygons, f"{code} ({area_type})")
+        if geometry:
+            areas[code]["geometry"][area_type] = geometry
 
 
 def areas_with_boundaries(areas: dict) -> list:
     result = []
     for code, area in sorted(areas.items()):
-        boundaries = area.get("boundaries", {})
+        boundaries = area["geometry"]
         if not boundaries:
             continue
-        area["types"] = [area_type for area_type in area["types"] if area_type in boundaries]
-        area["sources"] = {area_type: area["sources"][area_type] for area_type in area["types"]}
-        result.append(area)
+        geometry = next(iter(boundaries.values()))
+        if len(boundaries) > 1:
+            geometry = merge_polygons([shape(boundary) for boundary in boundaries.values()], code)
+            if geometry is None:
+                raise ValueError(f"No polygon after merging boundaries for {code}")
+        result.append({
+            "type": "Feature",
+            "properties": {
+                "icao": code,
+                "name": area["name"],
+                "types": [area_type for area_type in area["types"] if area_type in boundaries],
+            },
+            "geometry": geometry,
+        })
     if not result:
         raise ValueError("No NOTAM areas with valid boundaries")
     return result
@@ -170,18 +162,17 @@ def areas_with_boundaries(areas: dict) -> list:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--faa-boundaries", type=Path, required=True, help="FAA chart boundary GeoJSON")
     parser.add_argument("--openaip-exports", type=Path, default=GEOJSONS_DIR)
     args = parser.parse_args()
     areas = load_catalog()
-    add_faa_boundaries(areas, args.faa_boundaries)
     add_openaip_boundaries(areas, args.openaip_exports)
-    export = areas_with_boundaries(areas)
+    features = areas_with_boundaries(areas)
+    export = {"type": "FeatureCollection", "features": features}
     NOTAM_AREAS_PATH.write_text(
         json.dumps(export, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(export)} of {len(areas)} area codes to {NOTAM_AREAS_PATH}")
+    print(f"Wrote {len(features)} of {len(areas)} area codes to {NOTAM_AREAS_PATH}")
 
 
 if __name__ == "__main__":

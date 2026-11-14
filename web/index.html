@@ -139,19 +139,19 @@
         </div>
         <p class="text-slate-600 leading-relaxed mb-2">
           Get every airport from the available OpenAIP country exports in one
-          JSON array. Use it for airport search, map markers, or data imports.
+          GeoJSON file for airport search, map markers, or data imports.
         </p>
         <p class="text-sm text-slate-600 leading-relaxed mb-6">
-          Each entry has a <code>name</code> and <code>coordinates</code> in
-          [longitude, latitude] order. The <code>icao</code> field is included
+          Each point has coordinates in [longitude, latitude] order and a
+          <code>name</code> property. The <code>icao</code> property is included
           when available.
         </p>
         <a
-          href="https://huggingface.co/datasets/jobes666/openaip-mptiles/resolve/main/allairports.json?download=true"
+          href="https://huggingface.co/datasets/jobes666/openaip-mptiles/resolve/main/airports.geojson?download=true"
           class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 px-6 rounded-full transition-all transform hover:scale-105 shadow"
         >
           <i class="fa-solid fa-download" aria-hidden="true"></i>
-          Download allairports.json
+          Download airports.geojson
         </a>
       </section>
 
@@ -166,11 +166,12 @@
           Look up the ICAO code to enter when searching for area NOTAMs.
           Use the included GeoJSON boundaries to find flight information
           regions (FIRs) and U.S. air route traffic control centers (ARTCCs)
-          along a route. Each entry includes its boundary sources.
+          along a route.
         </p>
         <p class="text-sm text-slate-600 leading-relaxed mb-6">
-          The catalog includes areas with matching boundaries in OpenAIP or FAA
-          data. Geographic coverage is partial.
+          The GeoJSON catalog is generated from OpenAIP exports. It includes areas
+          whose boundaries can be matched to an ICAO code. Geographic coverage
+          is partial.
         </p>
         <a
           href="https://huggingface.co/datasets/jobes666/openaip-mptiles/resolve/main/notam-areas.json?download=true"
